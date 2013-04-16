@@ -39,7 +39,7 @@ public class Point implements Comparable<Point>{
   }
 //---------------------------------
   
-//Comparison function to check whether the point is the same point
+//Comparison function to check whether the point is the same point and if not, what the difference is.
   public int compareTo(Point p){
     double diff = this.x-p.getX();
     if (diff==0.0){
