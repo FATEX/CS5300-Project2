@@ -42,4 +42,8 @@ Thumbs.db
 .settings/
 .project
 .classpath
+<<<<<<< HEAD
 .metadata/
+=======
+.metadata/
+>>>>>>> Initial Mega Commit
