@@ -23,7 +23,7 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		Float pageRank = (float) 0.0;
 		Float oldPageRank = (float) 0.0;
 		Float residual = (float) 0.0;
-		Float threshold = (float) 0.01; //Tenth of a percent THIS IS THE CONVERGENCE VALUES
+		Float threshold = (float) 0.01; //Tenth of a percent THIS IS THE CONVERGENCE VALUE
 		
 		ArrayList<String> edgeList = new ArrayList<String>();
 		
@@ -31,6 +31,7 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 
 		while (itr.hasNext()) {
 			input = itr.next();
+			//System.out.println(input);
 			String inputStr = input.toString();
 			inputTokens = inputStr.split(" ");
 			
@@ -62,7 +63,7 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		edgeList.add(0, new String(String.valueOf(pageRank)));
 		
 		for (int i = 0; i < edgeList.size() - 1; i++) {
-			output += edgeList.get(i) + "\t";
+			output += edgeList.get(i) + " ";
 		}
 		
 		output += edgeList.get(edgeList.size() - 1);

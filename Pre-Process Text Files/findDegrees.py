@@ -8,7 +8,7 @@ def main():
 	sortedDictionary = {}
 	cnt = Counter()
 	f = open("Preprocess_76.txt","r")
-	degressFile = open("DegressOfNodes.txt", "w") 
+	degressFile = open("DegreesOfNodes.txt", "w") 
 	for line in iter(f):
 		temp = line.split()
 		holder = temp[0]

@@ -36,7 +36,7 @@ public class NodeDriver {
         //String inputFile = "../../../Pre-Process Text Files/Preprocess_76.txt";
 		//String inputFile = "../Pre-Process Text Files/Preprocess_76.txt"; REAL ONE
 		String inputFile = "../Pre-Process Text Files/test.txt";
-		String outputPath = "/OutputFolder";
+		String outputPath = "OutputFolder/";
 		
 		//conf.set("inputPath", inputFile);
 	    //conf.set("outputPath", outputPath);

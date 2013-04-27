@@ -17,17 +17,16 @@ public class LeMapper extends Mapper<LongWritable, Text, Text, Text> {
 	protected void map(LongWritable key, Text value, Context context)
 			throws IOException, InterruptedException {
 		
-		//Need A File In The Format "NODE pageRank Degree"
+		//Line is in the format['node','PageRank Estimate','degrees(node)','other node'] delimiter = " "
 		
 		String line = value.toString();
 		line = line.trim();
-		System.out.println(line);
-		
+		//System.out.println(line);
 		String[] temp = line.split(" ");
-		System.out.println(temp[0]);
+		/*System.out.println(temp[0]);
 		System.out.println(temp[1]);
-		//System.out.println(temp[2]); //Blank SPACE!
 		System.out.println(temp[2]);
+		System.out.println(temp[3]);*/
 		
 		Text Node = new Text(temp[0]);
 		Float pageRank = new Float(temp[1]);
@@ -36,21 +35,20 @@ public class LeMapper extends Mapper<LongWritable, Text, Text, Text> {
 
 		if (degree == 0) {
 			pageRank = (float) 1.0;
-		} else {
-			pageRank = (float) pageRank / degree;
-		}
+		} //Already divided by the degree in the Preprocess
 		
 		//Concatenate The String For The Reducer To Process With The Outgoing Edges
 		Text edgeList = new Text();
-		String tempList = "";
-
-		for (int i = 1; i < temp.length - 1; i++) {
+		
+		//TODO: Pretty sure the file is already in a good format.
+		/*String tempList = "";
+		for (int i = 0; i < temp.length - 1; i++) {
 			tempList += temp[i] + " ";
 		}
+		tempList += temp[temp.length - 1];*/
 		
-		tempList += temp[temp.length - 1];
-		edgeList = new Text(tempList);
-
+		//TODO: Verify How The File Should Look
+		edgeList = new Text(line);
 		context.write(Node, edgeList);
 		cleanup(context);
 		Text nodeOut = new Text();
