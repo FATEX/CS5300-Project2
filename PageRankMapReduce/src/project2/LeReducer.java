@@ -48,7 +48,8 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		if (Float.compare(pageRank, threshold) > 1) {
 			residual = (oldPageRank - pageRank) / pageRank;
 		} else {
-			System.out.println("Error In The Reducer Class. Something went wrong in the PageRank versus Threshold test.");
+			//System.out.println("Error In The Reducer Class. Something went wrong in the PageRank versus Threshold test.");
+			System.out.println(" ");
 		}
 		
 		if (Float.compare(threshold, residual) > 1) {
@@ -56,7 +57,7 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 			pageRank = oldPageRank;
 		}
 
-		// TODO: check if this condition is correct
+		// TODO: Check if this condition is correct
 		if (edgeList.size() > 0) {
 			edgeList.remove(0);
 		}
