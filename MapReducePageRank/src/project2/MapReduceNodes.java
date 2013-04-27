@@ -31,17 +31,17 @@ public class MapReduceNodes {
 	//TODO: Not Running: Getting java.lang.NoClassDefFoundError
 	public static void main(String[] args) throws Exception {
 
-		Configuration conf = new Configuration();
+		//Configuration conf = new Configuration();
 		
         //String inputFile = "../../../Pre-Process Text Files/Preprocess_76.txt";
 		String inputFile = "Preprocess_76.txt";
 		String outputPath = "/OutputFolder";
 		
-		conf.set("inputPath", inputFile);
-	    conf.set("outputPath", outputPath);
+		//conf.set("inputPath", inputFile);
+	    //conf.set("outputPath", outputPath);
 		
         // Create a new job
-        Job job = new Job(conf, "Simple Node - MapReduce  PageRank");
+        Job job = new Job();
 
         // Set job name to locate it in the distributed environment
         job.setJarByClass(MapReduceNodes.class);
