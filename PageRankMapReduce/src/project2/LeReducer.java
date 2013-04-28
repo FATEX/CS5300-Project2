@@ -48,8 +48,13 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		if (Float.compare(pageRank, threshold) > 1) {
 			residual = (oldPageRank - pageRank) / pageRank;
 		} else {
+<<<<<<< HEAD
 			//System.out.println("Error In The Reducer Class. Something went wrong in the PageRank versus Threshold test.");
 			System.out.println(" ");
+=======
+			System.out.println("Error In The Reducer Class. Something went wrong in the PageRank versus Threshold test.");
+			//System.out.println("");
+>>>>>>> Updated PreprocessFinalFIle.txt
 		}
 		
 		if (Float.compare(threshold, residual) > 1) {
