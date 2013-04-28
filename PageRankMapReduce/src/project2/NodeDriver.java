@@ -28,6 +28,13 @@ public class NodeDriver {
 	 * Reject Limit: 0.762400
 	 */
 	
+	// use a hadoop counter to track the total residual error so we can compute the average at the end
+	public static enum ProjectCounters {
+	    RESIDUAL_ERROR
+	};
+	public static final int totalNodes = 685230;	// total # of nodes in the input set
+	public static final int precision = 10000;	// this allows us to store the error in the counter as an int
+	
 	//TODO: Not Running: Getting java.lang.NoClassDefFoundError
 	public static void main(String[] args) throws Exception {
 
@@ -56,14 +63,17 @@ public class NodeDriver {
         // Set Mapper and Reducer class
         job.setMapperClass(project2.LeMapper.class);
         job.setReducerClass(project2.LeReducer.class);
-        
-        //TODO: set input key/value?
 
         // Set Output key and value
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        System.exit(job.waitForCompletion(true) ? 0 : 1);
+        job.waitForCompletion(true);
+        
+        // now compute the avg residual error for this pass and print it out
+        float residualErrorSum = job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision;
+        Float residualErrorAvg = new Float(residualErrorSum / totalNodes);
+        System.out.println("Residual error: " + residualErrorAvg.toString());
     }
 	
 	

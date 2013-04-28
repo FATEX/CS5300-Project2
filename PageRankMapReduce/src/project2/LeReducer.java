@@ -24,12 +24,11 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		
 		Float pageRankIncomingSum = (float) 0.0;
 		Float dampingFactor = (float) 0.85;
-		Float randomJumpFactor = (1 - dampingFactor) / 685230;
+		Float randomJumpFactor = (1 - dampingFactor) / NodeDriver.totalNodes;
 		
 		Float pageRankNew = (float) 0.0;
-		//Float oldPageRank = (float) 0.0;
-		//Float residual = (float) 0.0;
-		//Float threshold = (float) 0.01; //Tenth of a percent THIS IS THE CONVERGENCE VALUE
+		Float pageRankOld = (float) 0.0;
+		Float residual = (float) 0.0;
 		
 		ArrayList<String> edgeList = new ArrayList<String>();
 		
@@ -37,59 +36,39 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 
 		while (itr.hasNext()) {
 			input = itr.next();
-			//System.out.println(input);
 			String inputStr = input.toString();
 			inputTokens = inputStr.split(" ");
 			
-			edgeList.add(new String(inputTokens[0]));
-			Float thisPageRank = new Float(Float.parseFloat(inputTokens[1]));
-			Integer thisDegrees = new Integer(Integer.parseInt(inputTokens[2]));
-			pageRankIncomingSum += (thisPageRank/thisDegrees);
+			// the "PR" signifies this is the previous pagerank for this node
+			if (inputTokens[0] == "PR") {
+				pageRankOld = Float.parseFloat(inputTokens[1]);
 			
-			/*
-			if (inputTokens.length == 1) {
-				pageRank = pageRank + Float.parseFloat(inputTokens[0]);
-			} else {
-				oldPageRank = Float.parseFloat(inputTokens[0]);
-				for (int i = 0; i < inputTokens.length; i++) {
-					edgeList.add(i, new String(inputTokens[i]));
-				}
+			// otherwise it is the information for the incoming node
+			} else {			
+				edgeList.add(new String(inputTokens[0]));
+				Float thisPageRank = new Float(Float.parseFloat(inputTokens[1]));
+				Integer thisDegrees = new Integer(Integer.parseInt(inputTokens[2]));
+				pageRankIncomingSum += (thisPageRank / thisDegrees);
 			}
-			*/
+			
 		}
 		
-		// to compute pageRankNew:
+		// compute pageRankNew:
 		// 	pageRankNew = dampingFactor * (sum(pageRank[v]/degrees[v])) + (1 - dampingFactor)/N
 		pageRankNew = (dampingFactor * pageRankIncomingSum) + randomJumpFactor;
 		
+		// compute the residual error for this node
+		residual = Math.abs(pageRankOld - pageRankNew) / pageRankNew;
 		
-		/*if (Float.compare(pageRank, threshold) > 1) {
-			residual = (oldPageRank - pageRank) / pageRank;
-		} else {
-			//System.out.println("Error In The Reducer Class. Something went wrong in the PageRank versus Threshold test.");
-			System.out.println(" ");
-		}
-		
-		if (Float.compare(threshold, residual) > 1) {
-			System.out.println("Convergence. Value is less than 0.01 terminal value! Yay!");
-			pageRank = oldPageRank;
-		}
-		*/
-
+		// add the residual error to the counter that is tracking the overall sum (must be expressed as an integer)
+		int residualAsInt = (int) Math.floor(residual * NodeDriver.precision);
+		context.getCounter(NodeDriver.ProjectCounters.RESIDUAL_ERROR).increment(residualAsInt);
 		
 		// output should be 
 		//	key:nodeID (for this node)
-		//	value:<pageRankNew> <degrees> <outgoing nodeList>
-		
+		//	value:<pageRankNew> <degrees> <outgoing nodeList>		
 		Integer degrees = new Integer(edgeList.size());
 		output = pageRankNew + " " + degrees.toString() + " ";
-
-		// TODO: Check if this condition is correct
-		/*if (edgeList.size() > 0) {
-			edgeList.remove(0);
-		}
-		edgeList.add(0, new String(String.valueOf(pageRank)));
-		*/
 		
 		for (int i = 0; i < edgeList.size() - 1; i++) {
 			output += edgeList.get(i) + ",";
