@@ -56,6 +56,8 @@ public class NodeDriver {
         // Set Mapper and Reducer class
         job.setMapperClass(project2.LeMapper.class);
         job.setReducerClass(project2.LeReducer.class);
+        
+        //TODO: set input key/value?
 
         // Set Output key and value
         job.setOutputKeyClass(Text.class);
