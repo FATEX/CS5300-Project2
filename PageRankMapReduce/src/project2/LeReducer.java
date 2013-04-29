@@ -16,8 +16,8 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 	protected void reduce(Text key, Iterable<Text> values, Context context)
 			throws IOException, InterruptedException {
 		
-		// format of each incoming value is: <nodeID> <pageRank> <degrees>
-		// this gives the pageRank & degrees for each node pointing to the key node
+		// format of each incoming value is: <nodeID> <pageRankFactor>
+		// this gives the pageRankFactor (pageRank/degrees) for each node pointing to the key node
 		Iterator<Text> itr = values.iterator();
 		Text input = new Text();
 		String[] inputTokens = null;
@@ -30,25 +30,22 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		Float pageRankOld = (float) 0.0;
 		Float residual = (float) 0.0;
 		
-		ArrayList<String> edgeList = new ArrayList<String>();
-		
+		String edgeList = "";
 		String output = "";
 
 		while (itr.hasNext()) {
 			input = itr.next();
-			String inputStr = input.toString();
-			inputTokens = inputStr.split(" ");
+			inputTokens = input.toString().split(" ");
 			
-			// the "PR" signifies this is the previous pagerank for this node
-			if (inputTokens[0] == "PR") {
-				pageRankOld = Float.parseFloat(inputTokens[1]);
+			// if 2 elements, it is the previous pagerank and outgoing edgelist for this node
+			if (inputTokens.length == 2) {
+				pageRankOld = Float.parseFloat(inputTokens[0]);
+				edgeList = inputTokens[1];
 			
-			// otherwise it is the information for the incoming node
-			} else {			
-				edgeList.add(new String(inputTokens[0]));
-				Float thisPageRank = new Float(Float.parseFloat(inputTokens[1]));
-				Integer thisDegrees = new Integer(Integer.parseInt(inputTokens[2]));
-				pageRankIncomingSum += (thisPageRank / thisDegrees);
+			// otherwise it is the pageRankFactor for the incoming node
+			} else {
+				Float pageRankFactor = new Float(Float.parseFloat(inputTokens[0]));
+				pageRankIncomingSum += pageRankFactor;
 			}
 			
 		}
@@ -61,19 +58,14 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		residual = Math.abs(pageRankOld - pageRankNew) / pageRankNew;
 		
 		// add the residual error to the counter that is tracking the overall sum (must be expressed as an integer)
-		int residualAsInt = (int) Math.floor(residual * NodeDriver.precision);
-		context.getCounter(NodeDriver.ProjectCounters.RESIDUAL_ERROR).increment(residualAsInt);
+		long residualAsLong = (long) Math.floor(residual * NodeDriver.precision);
+		context.getCounter(NodeDriver.ProjectCounters.RESIDUAL_ERROR).increment(residualAsLong);
 		
 		// output should be 
 		//	key:nodeID (for this node)
-		//	value:<pageRankNew> <degrees> <comma-separated outgoing nodeList>		
-		Integer degrees = new Integer(edgeList.size());
-		output = pageRankNew + " " + degrees.toString() + " ";
-		
-		for (int i = 0; i < edgeList.size() - 1; i++) {
-			output += edgeList.get(i) + ",";
-		}
-		output += edgeList.get(edgeList.size() - 1);
+		//	value:<pageRankNew> <degrees> <comma-separated outgoing edgeList>		
+		Integer degrees = new Integer(edgeList.split(",").length);
+		output = pageRankNew + " " + degrees.toString() + " " + edgeList;
 
 		Text outputText = new Text(output);
 
