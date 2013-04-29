@@ -34,46 +34,50 @@ public class NodeDriver {
 	};
 	public static final int totalNodes = 685230;	// total # of nodes in the input set
 	public static final int precision = 10000;	// this allows us to store the error in the counter as an int
-	
-	//TODO: Not Running: Getting java.lang.NoClassDefFoundError
+    //TODO: change to 5 once round 1 is working
+	private static final int NUM_ITERATIONS = 1; // # of iterations to run
+    
 	public static void main(String[] args) throws Exception {
 
-		//Configuration conf = new Configuration();
 		
-        //String inputFile = "../../../Pre-Process Text Files/Preprocess_76.txt";
-		//String inputFile = "../Pre-Process Text Files/Preprocess_76.txt"; REAL ONE
 		String inputFile = "../Pre-Process Text Files/PreprocessFinalFile.txt";
 		String outputPath = "OutputFolder/";
-		
-		//conf.set("inputPath", inputFile);
-	    //conf.set("outputPath", outputPath);
-		
-        // Create a new job
-        Job job = new Job();
 
-        // Set job name to locate it in the distributed environment
-        job.setJarByClass(project2.NodeDriver.class);
-        job.setJobName("Simple Node - MapReduce  PageRank");
+        for (int i = 0; i < (NUM_ITERATIONS-1); i++) {
+            Job job = new Job();
+            // Set a unique job name
+            job.setJobName("pagerank_"+ (i+1));
+            job.setJarByClass(project2.NodeDriver.class);
+
+            // Set Mapper and Reducer class
+            job.setMapperClass(project2.LeMapper.class);
+            job.setReducerClass(project2.LeReducer.class);
+            
+            // set the classes for output key and value
+            job.setOutputKeyClass(Text.class);
+            job.setOutputValueClass(Text.class);
+            
+            // on the initial pass, use the preprocessed input file
+            // note that we use the default input format which is TextInputFormat (each record is a line of input)
+            if (i == 0) {
+                FileInputFormat.addInputPath(job, new Path(inputFile)); 	
+            // otherwise use the output of the last pass as our input
+            } else {
+            	FileInputFormat.addInputPath(job, new Path(outputPath + "temp"+i)); 
+            }
+            // set the output file path
+            FileOutputFormat.setOutputPath(job, new Path(outputPath + "temp"+(i+1)));
+            
+            // execute the job and wait for completion before starting the next pass
+            job.waitForCompletion(true);
+            
+            // before starting the next pass, compute the avg residual error for this pass and print it out
+            float residualErrorSum = job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision;
+            Float residualErrorAvg = new Float(residualErrorSum / totalNodes);
+            System.out.println("Residual error for iteration " + i + ": " + residualErrorAvg.toString());
+            
+        }
         
-        // Set input and output Path, note that we use the default input format
-        // which is TextInputFormat (each record is a line of input)
-        FileInputFormat.addInputPath(job, new Path(inputFile));
-        FileOutputFormat.setOutputPath(job, new Path(outputPath));
-
-        // Set Mapper and Reducer class
-        job.setMapperClass(project2.LeMapper.class);
-        job.setReducerClass(project2.LeReducer.class);
-
-        // Set Output key and value
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(Text.class);
-
-        job.waitForCompletion(true);
-        
-        // now compute the avg residual error for this pass and print it out
-        float residualErrorSum = job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision;
-        Float residualErrorAvg = new Float(residualErrorSum / totalNodes);
-        System.out.println("Residual error: " + residualErrorAvg.toString());
     }
 	
 	

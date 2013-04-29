@@ -66,7 +66,7 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		
 		// output should be 
 		//	key:nodeID (for this node)
-		//	value:<pageRankNew> <degrees> <outgoing nodeList>		
+		//	value:<pageRankNew> <degrees> <comma-separated outgoing nodeList>		
 		Integer degrees = new Integer(edgeList.size());
 		output = pageRankNew + " " + degrees.toString() + " ";
 		
