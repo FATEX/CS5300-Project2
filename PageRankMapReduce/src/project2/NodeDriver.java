@@ -33,15 +33,18 @@ public class NodeDriver {
 	    RESIDUAL_ERROR
 	};
 	public static final int totalNodes = 685230;	// total # of nodes in the input set
-	public static final int precision = 10000;	// this allows us to store the error in the counter as an int
+	public static final int precision = 10000;	// this allows us to store the residual error value in the counter as a long
     //TODO: change to 5 once round 1 is working
 	private static final int NUM_ITERATIONS = 1; // # of iterations to run
     
 	public static void main(String[] args) throws Exception {
-
 		
-		String inputFile = "../Pre-Process Text Files/PreprocessFinalFile.txt";
-		String outputPath = "OutputFolder/";
+		if (args.length != 2) {
+			System.err.println("Usage (no trailing slashes): project2.NodeDriver s3n://<in filename> s3n://<out bucket>");
+			System.exit(2);
+		}
+		String inputFile = args[0];
+		String outputPath = args[1];
 
         for (int i = 0; i < (NUM_ITERATIONS-1); i++) {
             Job job = new Job();
@@ -63,19 +66,22 @@ public class NodeDriver {
                 FileInputFormat.addInputPath(job, new Path(inputFile)); 	
             // otherwise use the output of the last pass as our input
             } else {
-            	FileInputFormat.addInputPath(job, new Path(outputPath + "temp"+i)); 
+            	FileInputFormat.addInputPath(job, new Path(outputPath + "/temp"+i)); 
             }
             // set the output file path
-            FileOutputFormat.setOutputPath(job, new Path(outputPath + "temp"+(i+1)));
+            FileOutputFormat.setOutputPath(job, new Path(outputPath + "/temp"+(i+1)));
             
             // execute the job and wait for completion before starting the next pass
             job.waitForCompletion(true);
             
             // before starting the next pass, compute the avg residual error for this pass and print it out
-            float residualErrorSum = job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision;
-            Float residualErrorAvg = new Float(residualErrorSum / totalNodes);
-            System.out.println("Residual error for iteration " + i + ": " + residualErrorAvg.toString());
+            // TODO: will float work or do we need a double?
+            float residualErrorAvg = job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision  / totalNodes;
+            String residualErrorString = String.format("%0.4f", residualErrorAvg);
+            System.out.println("Residual error for iteration " + i + ": " + residualErrorString);
             
+            // reset the counter for the next round
+            job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).setValue(0L);
         }
         
     }
