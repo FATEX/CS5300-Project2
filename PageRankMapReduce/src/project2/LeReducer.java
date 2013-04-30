@@ -16,8 +16,9 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 	protected void reduce(Text key, Iterable<Text> values, Context context)
 			throws IOException, InterruptedException {
 		
-		// format of each incoming value is: <nodeID> <pageRankFactor>
+		// format of each incoming value is either: <pageRankFactor>
 		// this gives the pageRankFactor (pageRank/degrees) for each node pointing to the key node
+		// or it could be: PR <prevPageRank> <outgoingEdgeList>
 		Iterator<Text> itr = values.iterator();
 		Text input = new Text();
 		String[] inputTokens = null;
@@ -28,7 +29,7 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		
 		Float pageRankNew = (float) 0.0;
 		Float pageRankOld = (float) 0.0;
-		Float residual = (float) 0.0;
+		Float residualError = (float) 0.0;
 		
 		String edgeList = "";
 		String output = "";
@@ -36,10 +37,10 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		while (itr.hasNext()) {
 			input = itr.next();
 			inputTokens = input.toString().split(" ");			
-			// if 2 elements, it is the previous pagerank and outgoing edgelist for this node
-			if (inputTokens.length == 2) {
-				pageRankOld = Float.parseFloat(inputTokens[0]);
-				edgeList = inputTokens[1];
+			// if 3 elements, it is the previous pagerank and outgoing edgelist for this node
+			if (inputTokens.length == 3 && inputTokens[0] == "PR") {
+				pageRankOld = Float.parseFloat(inputTokens[1]);
+				edgeList = inputTokens[2];
 			
 			// otherwise it is the pageRankFactor for the incoming node
 			} else {
@@ -54,10 +55,10 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		pageRankNew = (dampingFactor * pageRankIncomingSum) + randomJumpFactor;
 		
 		// compute the residual error for this node
-		residual = Math.abs(pageRankOld - pageRankNew) / pageRankNew;
+		residualError = Math.abs(pageRankOld - pageRankNew) / pageRankNew;
 		
-		// add the residual error to the counter that is tracking the overall sum (must be expressed as an integer)
-		long residualAsLong = (long) Math.floor(residual * NodeDriver.precision);
+		// add the residual error to the counter that is tracking the overall sum (must be expressed as a long value)
+		long residualAsLong = (long) Math.floor(residualError * NodeDriver.precision);
 		context.getCounter(NodeDriver.ProjectCounters.RESIDUAL_ERROR).increment(residualAsLong);
 		
 		// output should be 
@@ -69,7 +70,6 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 		Text outputText = new Text(output);
 
 		context.write(key, outputText);
-		cleanup(context);
 	}
 
 }

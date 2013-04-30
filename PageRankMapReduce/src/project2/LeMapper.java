@@ -12,8 +12,6 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.*;
 
 public class LeMapper extends Mapper<LongWritable, Text, Text, Text> {
-	private Float residualSum = new Float(0.0);
-	private static int totalNodes = 685230;
 
 	protected void map(LongWritable key, Text value, Context context)
 			throws IOException, InterruptedException {
@@ -27,26 +25,29 @@ public class LeMapper extends Mapper<LongWritable, Text, Text, Text> {
 		Text node = new Text(temp[0]);
 		Float pageRank = new Float(temp[1]);
 		Integer degree = new Integer(temp[2]);
-		System.out.println(temp[3]);
-		String edgeList = new String(temp[3]);
-		
-		// the pageRankFactor is used by the reducer to calculate the new pageRank for the outgoing edges
-		Float pageRankFactor = new Float(pageRank/degree);
+		// there may not be any outgoing edges
+		String edgeList = "";
+		if (temp.length == 4) {
+			edgeList = temp[3];
+		}
 		
 		// to pass along previous pageRank and outgoing edgelist
-		// map key:node value:pageRank <outgoing edgelist>
+		// map key:node value:PR pageRank <outgoing edgelist>
 		Text mapperKey = new Text(node);
-		Text mapperValue = new Text(String.valueOf(pageRank) + " " + edgeList);
+		Text mapperValue = new Text("PR " + String.valueOf(pageRank) + " " + edgeList);
 		context.write(mapperKey, mapperValue);
 
-		// now map key:nodeOut value:pageRankFactor for each outgoing edge
-		mapperValue = new Text(String.valueOf(pageRankFactor));
-		String[] edgeListArray = edgeList.split(",");
+		// the pageRankFactor is used by the reducer to calculate the new pageRank for the outgoing edges
+		// map key:nodeOut value:pageRankFactor for each outgoing edge
+		if (edgeList != "") {	
+			Float pageRankFactor = new Float(pageRank/degree);
+			mapperValue = new Text(String.valueOf(pageRankFactor));
+			String[] edgeListArray = edgeList.split(",");
 
-		for (int i = 0; i < edgeListArray.length; i++) {
-			mapperKey = new Text(edgeListArray[i]);
-			context.write(mapperKey, mapperValue);
+			for (int i = 0; i < edgeListArray.length; i++) {
+				mapperKey = new Text(edgeListArray[i]);
+				context.write(mapperKey, mapperValue);
+			}
 		}
-		cleanup(context);
 	}
 }
