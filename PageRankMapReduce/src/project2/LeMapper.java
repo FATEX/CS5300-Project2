@@ -27,6 +27,7 @@ public class LeMapper extends Mapper<LongWritable, Text, Text, Text> {
 		Text node = new Text(temp[0]);
 		Float pageRank = new Float(temp[1]);
 		Integer degree = new Integer(temp[2]);
+		System.out.println(temp[3]);
 		String edgeList = new String(temp[3]);
 		
 		// the pageRankFactor is used by the reducer to calculate the new pageRank for the outgoing edges
