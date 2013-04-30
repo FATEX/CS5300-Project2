@@ -38,10 +38,13 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 			input = itr.next();
 			inputTokens = input.toString().split(" ");			
 			// if 3 elements, it is the previous pagerank and outgoing edgelist for this node
-			if (inputTokens.length == 3 && inputTokens[0] == "PR") {
+			if (inputTokens[0] == "PR") {
 				pageRankOld = Float.parseFloat(inputTokens[1]);
-				edgeList = inputTokens[2];
-			
+				if (inputTokens.length == 3) {
+					edgeList = inputTokens[2];
+				} else {
+					edgeList = "";
+				}
 			// otherwise it is the pageRankFactor for the incoming node
 			} else {
 				Float pageRankFactor = new Float(Float.parseFloat(inputTokens[0]));
