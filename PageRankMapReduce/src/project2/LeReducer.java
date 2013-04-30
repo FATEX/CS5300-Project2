@@ -35,8 +35,7 @@ public class LeReducer extends Reducer<Text, Text, Text, Text> {
 
 		while (itr.hasNext()) {
 			input = itr.next();
-			inputTokens = input.toString().split(" ");
-			
+			inputTokens = input.toString().split(" ");			
 			// if 2 elements, it is the previous pagerank and outgoing edgelist for this node
 			if (inputTokens.length == 2) {
 				pageRankOld = Float.parseFloat(inputTokens[0]);

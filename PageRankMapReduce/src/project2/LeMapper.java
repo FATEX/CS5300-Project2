@@ -22,7 +22,7 @@ public class LeMapper extends Mapper<LongWritable, Text, Text, Text> {
 		
 		String line = value.toString();
 		line = line.trim();
-		String[] temp = line.split(" ");
+		String[] temp = line.split("\\s+");
 		
 		Text node = new Text(temp[0]);
 		Float pageRank = new Float(temp[1]);

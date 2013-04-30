@@ -46,7 +46,7 @@ public class NodeDriver {
 		String inputFile = args[0];
 		String outputPath = args[1];
 
-        for (int i = 0; i < (NUM_ITERATIONS-1); i++) {
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
             Job job = new Job();
             // Set a unique job name
             job.setJobName("pagerank_"+ (i+1));
@@ -77,7 +77,7 @@ public class NodeDriver {
             // before starting the next pass, compute the avg residual error for this pass and print it out
             // TODO: will float work or do we need a double?
             float residualErrorAvg = job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision  / totalNodes;
-            String residualErrorString = String.format("%0.4f", residualErrorAvg);
+            String residualErrorString = String.format("%.4f", residualErrorAvg);
             System.out.println("Residual error for iteration " + i + ": " + residualErrorString);
             
             // reset the counter for the next round
