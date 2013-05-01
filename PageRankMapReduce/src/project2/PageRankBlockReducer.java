@@ -12,14 +12,16 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.*;
 
+
 public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 
-	private HashMap<String, Float> oldPR = new HashMap<String, Float>(800000);
-	private HashMap<String, Float> newPR = new HashMap<String, Float>(800000);
-	private HashMap<String, String> edgeList = new HashMap<String, String>(800000);
-	private HashMap<String, Integer> degrees = new HashMap<String, Integer>(800000);
-	private HashMap<String, ArrayList<String>> BE = new HashMap<String, ArrayList<String>>(800000);
-	private HashMap<String, ArrayList<String>> BC = new HashMap<String, ArrayList<String>>(800000);
+	//private HashMap<String, Float> oldPR = new HashMap<String, Float>(800000);
+	private HashMap<String, Float> newPR = new HashMap<String, Float>();
+	//private HashMap<String, String> edgeList = new HashMap<String, String>(800000);
+	//private HashMap<String, Integer> degrees = new HashMap<String, Integer>(800000);
+	private HashMap<String, ArrayList<String>> BE = new HashMap<String, ArrayList<String>>();
+	private HashMap<String, ArrayList<String>> BC = new HashMap<String, ArrayList<String>>();
+	private HashMap<String, NodeData> nodeDataMap = new HashMap<String, NodeData>();
 	private ArrayList<String> vList = new ArrayList<String>();
 	private Float dampingFactor = (float) 0.85;
 	private Float randomJumpFactor = (1 - dampingFactor) / PageRankBlock.totalNodes;
@@ -34,9 +36,9 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 		Text input = new Text();
 		String[] inputTokens = null;
 		
-		Float pageRankIncomingSum = (float) 0.0;
+		//Float pageRankIncomingSum = (float) 0.0;
 		
-		Float pageRankNew = (float) 0.0;
+		//Float pageRankNew = (float) 0.0;
 		Float pageRankOld = (float) 0.0;
 		Float residualError = (float) 0.0;
 		
@@ -51,16 +53,22 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 			if (inputTokens[0].equals("PR")) {
 				String nodeID = inputTokens[1];
 				pageRankOld = Float.parseFloat(inputTokens[2]);
-				oldPR.put(nodeID, pageRankOld);
+				//oldPR.put(nodeID, pageRankOld);
 				newPR.put(nodeID, 0.0f);
+				NodeData node = new NodeData();
+				node.setNodeID(nodeID);
+				node.setPageRank(pageRankOld);
 				if (inputTokens.length == 4) {
-					edgeList.put(nodeID, inputTokens[3]);		
-					degrees.put(nodeID, inputTokens[3].split(",").length);
-				} else {
-					edgeList.put(nodeID, "");
-					degrees.put(nodeID, 0);
+					node.setEdgeList(inputTokens[3]);
+					node.setDegrees(inputTokens[3].split(",").length);
+					//edgeList.put(nodeID, inputTokens[3]);		
+					//degrees.put(nodeID, inputTokens[3].split(",").length);
+				//} else {
+					//edgeList.put(nodeID, "");
+					//degrees.put(nodeID, 0);
 				}
 				vList.add(nodeID);
+				nodeDataMap.put(nodeID, node);
 				
 			// if BE, it is a set of in-block edges
 			} else if (inputTokens[0].equals("BE")) {
@@ -88,8 +96,8 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 				
 				//System.out.println(temp.toString());
 				//System.out.println(inputTokens[3]);
-				String concatenateString = inputTokens[1] + "," + inputTokens[3];
-				temp.add(concatenateString);
+				//String concatenateString = inputTokens[1] + "," + inputTokens[3];
+				temp.add(inputTokens[3]);
 				BC.put(inputTokens[2], temp);
 			
 			}		
@@ -101,7 +109,8 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 				
 		// compute the residual error for each node in this block
 		for (String v : vList) {
-			residualError += Math.abs(oldPR.get(v) - newPR.get(v)) / newPR.get(v);
+			NodeData node = nodeDataMap.get(v);
+			residualError += Math.abs(node.getPageRank() - newPR.get(v)) / newPR.get(v);
 		}
 		residualError = residualError / vList.size();
 		
@@ -113,7 +122,8 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 		//	key:nodeID (for this node)
 		//	value:<pageRankNew> <degrees> <comma-separated outgoing edgeList>
 		for (String v : vList) {
-			output = newPR.get(v) + " " + degrees.get(v) + " " + edgeList.get(v);
+			NodeData node = nodeDataMap.get(v);
+			output = newPR.get(v) + " " + node.getDegrees() + " " + node.getEdgeList();
 			Text outputText = new Text(output);
 			Text outputKey = new Text(v);
 			context.write(outputKey, outputText);
@@ -134,7 +144,7 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 	// 		R = PR[u]/deg[u] for boundary nodes
 	// NPR[v] = Next PageRank value of Node v
 	protected void IterateBlockOnce() {
-		HashMap<String,Float> NPR = new HashMap<String,Float>(800000);
+		HashMap<String,Float> NPR = new HashMap<String,Float>();
 		ArrayList<String> uList = new ArrayList<String>();
 		ArrayList<String> uListBC = new ArrayList<String>();
 		
@@ -145,8 +155,6 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 		
 	    //for( v in B ) {
 		for (String v : vList) {
-			
-			
 			if(BE.containsKey(v)){
 				//Initialize BC for this v
 				uList = BE.get(v);
@@ -157,7 +165,8 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 			//for( u where <u, v> in BE ) {
 			for (String u : uList) {
 				//    NPR[v] += PR[u] / deg(u);
-				float npr = NPR.get(v) + (newPR.get(u) / degrees.get(u));
+				NodeData uNode = nodeDataMap.get(u);
+				float npr = NPR.get(v) + (newPR.get(u) / uNode.getDegrees());
 				NPR.put(v, npr);
 	        }
 			
@@ -172,8 +181,8 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 			//for( u, R where <u,v,R> in BC ) {
 			for (String uR : uListBC) { 
 		        //    NPR[v] += R;
-				String[] tempUR = uR.split(",");
-				float npr = NPR.get(v) + Float.parseFloat(tempUR[1]);
+				//String[] tempUR = uR.split(",");
+				float npr = NPR.get(v) + Float.parseFloat(uR);
 				NPR.put(v, npr);
 	        }
 	        //NPR[v] = d*NPR[v] + (1-d)/N;
@@ -186,5 +195,6 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 			newPR.put(v, NPR.get(v));
 		}
 	}
+
 }
 
