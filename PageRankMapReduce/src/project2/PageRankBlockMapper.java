@@ -57,12 +57,12 @@ public class PageRankBlockMapper extends Mapper<LongWritable, Text, Text, Text> 
 			for (int i = 0; i < edgeListArray.length; i++) {
 				Integer blockIDOut = new Integer(lookupBlockID(Integer.parseInt(edgeListArray[i])));
 				mapperKey = new Text(blockIDOut.toString());
-				mapperValue = new Text(edgeListArray[i] + " " + pageRankFactorString);
-				context.write(mapperKey, mapperValue);
-				if (blockIDOut != blockID) {
-					mapperValue = new Text("BC " + node.toString() + " " + pageRankFactorString);
-					context.write(mapperKey, mapperValue);
+				if (blockIDOut == blockID) {
+					mapperValue = new Text("BE " + node.toString() + " " + edgeListArray[i]);
+				} else {
+					mapperValue = new Text("BC " + node.toString() + " " + edgeListArray[i] + " " + pageRankFactorString);
 				}
+				context.write(mapperKey, mapperValue);
 			}
 		}
 	}

@@ -14,6 +14,16 @@ import org.apache.hadoop.util.*;
 
 public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 
+	private Hashtable<String, Float> oldPR = new Hashtable<String, Float>();
+	private Hashtable<String, Float> newPR = new Hashtable<String, Float>();
+	private Hashtable<String, String> edgeList = new Hashtable<String, String>();
+	private Hashtable<String, Integer> degrees = new Hashtable<String, Integer>();
+	private Hashtable<String, ArrayList<String>> BE = new Hashtable<String, ArrayList<String>>();
+	private Hashtable<String, ArrayList<String>> BC = new Hashtable<String, ArrayList<String>>();
+	private ArrayList<String> vList = new ArrayList<String>();
+	private Float dampingFactor = (float) 0.85;
+	private Float randomJumpFactor = (1 - dampingFactor) / PageRankBlock.totalNodes;
+	
 	protected void reduce(Text key, Iterable<Text> values, Context context)
 			throws IOException, InterruptedException {
 		
@@ -25,56 +35,71 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 		String[] inputTokens = null;
 		
 		Float pageRankIncomingSum = (float) 0.0;
-		Float dampingFactor = (float) 0.85;
-		Float randomJumpFactor = (1 - dampingFactor) / NodeDriver.totalNodes;
 		
 		Float pageRankNew = (float) 0.0;
 		Float pageRankOld = (float) 0.0;
 		Float residualError = (float) 0.0;
 		
-		String edgeList = "";
 		String output = "";
 
 		while (itr.hasNext()) {
 			input = itr.next();
 			inputTokens = input.toString().split("\\s+");			
-			// if 3 elements, it is the previous pagerank and outgoing edgelist for this node
+			// if PR, it is the previous pagerank and outgoing edgelist for this node
 			if (inputTokens[0].equals("PR")) {
-				pageRankOld = Float.parseFloat(inputTokens[1]);
-				if (inputTokens.length == 3) {
-					edgeList = inputTokens[2];
+				String nodeID = inputTokens[1];
+				pageRankOld = Float.parseFloat(inputTokens[2]);
+				oldPR.put(nodeID, pageRankOld);
+				newPR.put(nodeID, 0.0f);
+				if (inputTokens.length == 4) {
+					edgeList.put(nodeID, inputTokens[3]);		
+					degrees.put(nodeID, inputTokens[3].split(",").length);
 				} else {
-					edgeList = "";
+					edgeList.put(nodeID, "");
+					degrees.put(nodeID, 0);
 				}
-			// otherwise it is the pageRankFactor for the incoming node
-			} else {
-				Float pageRankFactor = new Float(Float.parseFloat(inputTokens[0]));
-				pageRankIncomingSum += pageRankFactor;
-			}
+				vList.add(nodeID);
+				
+			// if BE, it is a set of in-block edges
+			} else if (inputTokens[0].equals("BE")) {
+				ArrayList<String> temp = BE.get(inputTokens[2]);
+				temp.add(inputTokens[1]);
+				BE.put(inputTokens[2], temp);
+				
+			// if BC, it is an incoming node from outside of the block
+			} else if (inputTokens[0].equals("BC")) {
+				ArrayList<String> temp = BC.get(inputTokens[2]);
+				temp.add(inputTokens[1] + "," + inputTokens[3]);
+				BC.put(inputTokens[2], temp);
 			
+			}		
 		}
 		
-		// compute pageRankNew:
-		// 	pageRankNew = dampingFactor * (sum(pageRank[v]/degrees[v])) + (1 - dampingFactor)/N
-		pageRankNew = (dampingFactor * pageRankIncomingSum) + randomJumpFactor;
-		
-		// compute the residual error for this node
-		residualError = Math.abs(pageRankOld - pageRankNew) / pageRankNew;
+		for(int i=0; i<1; i++) {
+			IterateBlockOnce();
+		}
+				
+		// compute the residual error for each node in this block
+		for (String v : vList) {
+			residualError += Math.abs(oldPR.get(v) - newPR.get(v)) / newPR.get(v);
+		}
+		residualError = residualError / vList.size();
 		
 		// add the residual error to the counter that is tracking the overall sum (must be expressed as a long value)
-		long residualAsLong = (long) Math.floor(residualError * NodeDriver.precision);
-		context.getCounter(NodeDriver.ProjectCounters.RESIDUAL_ERROR).increment(residualAsLong);
+		long residualAsLong = (long) Math.floor(residualError * PageRankBlock.precision);
+		context.getCounter(PageRankBlock.ProjectCounters.RESIDUAL_ERROR).increment(residualAsLong);
 		
 		// output should be 
 		//	key:nodeID (for this node)
-		//	value:<pageRankNew> <degrees> <comma-separated outgoing edgeList>		
-		Integer degrees = new Integer(edgeList.split(",").length);
-		output = pageRankNew + " " + degrees.toString() + " " + edgeList;
-
-		Text outputText = new Text(output);
-
-		context.write(key, outputText);
+		//	value:<pageRankNew> <degrees> <comma-separated outgoing edgeList>
+		for (String v : vList) {
+			output = newPR.get(v) + " " + degrees.get(v) + " " + edgeList.get(v);
+			Text outputText = new Text(output);
+			Text outputKey = new Text(v);
+			context.write(outputKey, outputText);
+		}
 	}
+	
 
 	// v is all nodes within this block B
 	// u is all nodes pointing to this set of v
@@ -85,18 +110,41 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
     // BC = the Boundary Conditions
 	// 		R = PR[u]/deg[u] for boundary nodes
 	// NPR[v] = Next PageRank value of Node v
-	protected void IterateBlockOnce(int B) {
+	protected void IterateBlockOnce() {
+		Hashtable<String,Float> NPR = new Hashtable<String,Float>();
+
 		//for( v in B ) { NPR[v] = 0; }
+		for (String v : vList) {
+			NPR.put(v, 0.0f);
+		}
+		
 	    //for( v in B ) {
+		for (String v : vList) {
+			ArrayList<String> uList = BE.get(v);
 			//for( u where <u, v> in BE ) {
-	        //    NPR[v] += PR[u] / deg(u);
-	        //}
+			for (String u : uList) {
+				//    NPR[v] += PR[u] / deg(u);
+				float npr = NPR.get(v) + (newPR.get(u) / degrees.get(u));
+				NPR.put(v, npr);
+	        }
+			
+			ArrayList<String> uListBC = BC.get(v);
 			//for( u, R where <u,v,R> in BC ) {
-	        //    NPR[v] += R;
-	        //}
+			for (String uR : uListBC) { 
+		        //    NPR[v] += R;
+				String[] tempUR = uR.split(",");
+				float npr = NPR.get(v) + Float.parseFloat(tempUR[1]);
+				NPR.put(v, npr);
+	        }
 	        //NPR[v] = d*NPR[v] + (1-d)/N;
-	    //}
+			float npr = (dampingFactor * NPR.get(v)) + randomJumpFactor;
+			NPR.put(v, npr);
+	    }
+		
 	    //for( v in B ) { PR[v] = NPR[v]; }
+		for (String v : vList) {
+			newPR.put(v, NPR.get(v));
+		}
 	}
 }
 
