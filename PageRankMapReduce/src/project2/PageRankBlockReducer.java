@@ -14,12 +14,12 @@ import org.apache.hadoop.util.*;
 
 public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 
-	private Hashtable<String, Float> oldPR = new Hashtable<String, Float>();
-	private Hashtable<String, Float> newPR = new Hashtable<String, Float>();
-	private Hashtable<String, String> edgeList = new Hashtable<String, String>();
-	private Hashtable<String, Integer> degrees = new Hashtable<String, Integer>();
-	private Hashtable<String, ArrayList<String>> BE = new Hashtable<String, ArrayList<String>>();
-	private Hashtable<String, ArrayList<String>> BC = new Hashtable<String, ArrayList<String>>();
+	private HashMap<String, Float> oldPR = new HashMap<String, Float>(800000);
+	private HashMap<String, Float> newPR = new HashMap<String, Float>(800000);
+	private HashMap<String, String> edgeList = new HashMap<String, String>(800000);
+	private HashMap<String, Integer> degrees = new HashMap<String, Integer>(800000);
+	private HashMap<String, ArrayList<String>> BE = new HashMap<String, ArrayList<String>>(800000);
+	private HashMap<String, ArrayList<String>> BC = new HashMap<String, ArrayList<String>>(800000);
 	private ArrayList<String> vList = new ArrayList<String>();
 	private Float dampingFactor = (float) 0.85;
 	private Float randomJumpFactor = (1 - dampingFactor) / PageRankBlock.totalNodes;
@@ -118,6 +118,9 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 			Text outputKey = new Text(v);
 			context.write(outputKey, outputText);
 		}
+		
+		//System.out.print("The V List Is: ");
+		//System.out.println(vList.size());
 	}
 	
 
@@ -131,7 +134,7 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 	// 		R = PR[u]/deg[u] for boundary nodes
 	// NPR[v] = Next PageRank value of Node v
 	protected void IterateBlockOnce() {
-		Hashtable<String,Float> NPR = new Hashtable<String,Float>();
+		HashMap<String,Float> NPR = new HashMap<String,Float>(800000);
 		ArrayList<String> uList = new ArrayList<String>();
 		ArrayList<String> uListBC = new ArrayList<String>();
 		
