@@ -41,7 +41,9 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 		Float residualError = (float) 0.0;
 		
 		String output = "";
-
+		
+		ArrayList<String> temp = new ArrayList<String>();
+		
 		while (itr.hasNext()) {
 			input = itr.next();
 			inputTokens = input.toString().split("\\s+");			
@@ -62,14 +64,32 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 				
 			// if BE, it is a set of in-block edges
 			} else if (inputTokens[0].equals("BE")) {
-				ArrayList<String> temp = BE.get(inputTokens[2]);
+							
+				if(BE.containsKey(inputTokens[2])){
+					//Initialize BC for this v
+					temp = BE.get(inputTokens[2]);
+				}else{
+					temp = new ArrayList<String>();
+				}
+				
 				temp.add(inputTokens[1]);
 				BE.put(inputTokens[2], temp);
 				
 			// if BC, it is an incoming node from outside of the block
 			} else if (inputTokens[0].equals("BC")) {
-				ArrayList<String> temp = BC.get(inputTokens[2]);
-				temp.add(inputTokens[1] + "," + inputTokens[3]);
+				//System.out.println(BC.get(inputTokens[2]));
+				
+				if(BC.containsKey(inputTokens[2])){
+					//Initialize BC for this v
+					temp = BC.get(inputTokens[2]);
+				}else{
+					temp = new ArrayList<String>();
+				}
+				
+				//System.out.println(temp.toString());
+				//System.out.println(inputTokens[3]);
+				String concatenateString = inputTokens[1] + "," + inputTokens[3];
+				temp.add(concatenateString);
 				BC.put(inputTokens[2], temp);
 			
 			}		
@@ -112,7 +132,9 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 	// NPR[v] = Next PageRank value of Node v
 	protected void IterateBlockOnce() {
 		Hashtable<String,Float> NPR = new Hashtable<String,Float>();
-
+		ArrayList<String> uList = new ArrayList<String>();
+		ArrayList<String> uListBC = new ArrayList<String>();
+		
 		//for( v in B ) { NPR[v] = 0; }
 		for (String v : vList) {
 			NPR.put(v, 0.0f);
@@ -120,7 +142,15 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 		
 	    //for( v in B ) {
 		for (String v : vList) {
-			ArrayList<String> uList = BE.get(v);
+			
+			
+			if(BE.containsKey(v)){
+				//Initialize BC for this v
+				uList = BE.get(v);
+			}else{
+				uList = new ArrayList<String>();
+			}
+			
 			//for( u where <u, v> in BE ) {
 			for (String u : uList) {
 				//    NPR[v] += PR[u] / deg(u);
@@ -128,7 +158,14 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 				NPR.put(v, npr);
 	        }
 			
-			ArrayList<String> uListBC = BC.get(v);
+			
+			if(BC.containsKey(v)){
+				//Initialize BC for this v
+				uListBC = BC.get(v);
+			}else{
+				uListBC = new ArrayList<String>();
+			}
+			
 			//for( u, R where <u,v,R> in BC ) {
 			for (String uR : uListBC) { 
 		        //    NPR[v] += R;
