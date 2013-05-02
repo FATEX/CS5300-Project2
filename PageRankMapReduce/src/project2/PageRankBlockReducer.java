@@ -15,104 +15,101 @@ import org.apache.hadoop.util.*;
 
 public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 
-	//private HashMap<String, Float> oldPR = new HashMap<String, Float>(800000);
 	private HashMap<String, Float> newPR = new HashMap<String, Float>();
-	//private HashMap<String, String> edgeList = new HashMap<String, String>(800000);
-	//private HashMap<String, Integer> degrees = new HashMap<String, Integer>(800000);
 	private HashMap<String, ArrayList<String>> BE = new HashMap<String, ArrayList<String>>();
-	private HashMap<String, ArrayList<String>> BC = new HashMap<String, ArrayList<String>>();
+	private HashMap<String, Float> BC = new HashMap<String, Float>();
 	private HashMap<String, NodeData> nodeDataMap = new HashMap<String, NodeData>();
 	private ArrayList<String> vList = new ArrayList<String>();
 	private Float dampingFactor = (float) 0.85;
 	private Float randomJumpFactor = (1 - dampingFactor) / PageRankBlock.totalNodes;
+	private int maxIterations = 5;
+	private Float threshold = 0.001f;
 	
 	protected void reduce(Text key, Iterable<Text> values, Context context)
 			throws IOException, InterruptedException {
 		
-		// format of each incoming value is either: <pageRankFactor>
-		// this gives the pageRankFactor (pageRank/degrees) for each node pointing to the key node
-		// or it could be: PR <prevPageRank> <outgoingEdgeList>
 		Iterator<Text> itr = values.iterator();
 		Text input = new Text();
 		String[] inputTokens = null;
 		
-		//Float pageRankIncomingSum = (float) 0.0;
-		
-		//Float pageRankNew = (float) 0.0;
+		// initialize/reset all variables
 		Float pageRankOld = (float) 0.0;
 		Float residualError = (float) 0.0;
 		
 		String output = "";
+		Integer maxNode = 0;
 		
 		ArrayList<String> temp = new ArrayList<String>();
+		float tempBC = 0.0f;
+		vList.clear();
+		newPR.clear();
+		BE.clear();
+		BC.clear();
+		nodeDataMap.clear();	
 		
 		while (itr.hasNext()) {
 			input = itr.next();
-			inputTokens = input.toString().split("\\s+");			
-			// if PR, it is the previous pagerank and outgoing edgelist for this node
+			inputTokens = input.toString().split(" ");			
+			// if first element is PR, it is the node ID, previous pagerank and outgoing edgelist for this node
 			if (inputTokens[0].equals("PR")) {
 				String nodeID = inputTokens[1];
 				pageRankOld = Float.parseFloat(inputTokens[2]);
-				//oldPR.put(nodeID, pageRankOld);
-				newPR.put(nodeID, 0.0f);
+				newPR.put(nodeID, pageRankOld);
 				NodeData node = new NodeData();
 				node.setNodeID(nodeID);
 				node.setPageRank(pageRankOld);
 				if (inputTokens.length == 4) {
 					node.setEdgeList(inputTokens[3]);
 					node.setDegrees(inputTokens[3].split(",").length);
-					//edgeList.put(nodeID, inputTokens[3]);		
-					//degrees.put(nodeID, inputTokens[3].split(",").length);
-				//} else {
-					//edgeList.put(nodeID, "");
-					//degrees.put(nodeID, 0);
 				}
 				vList.add(nodeID);
 				nodeDataMap.put(nodeID, node);
-				
-			// if BE, it is a set of in-block edges
-			} else if (inputTokens[0].equals("BE")) {
-							
-				if(BE.containsKey(inputTokens[2])){
-					//Initialize BC for this v
-					temp = BE.get(inputTokens[2]);
-				}else{
-					temp = new ArrayList<String>();
+				// keep track of the max nodeID for this block
+				if (Integer.parseInt(nodeID) > maxNode) {
+					maxNode = Integer.parseInt(nodeID);
 				}
 				
+			// if BE, it is an in-block edge
+			} else if (inputTokens[0].equals("BE")) {			
+				
+				if (BE.containsKey(inputTokens[2])) {
+					//Initialize BC for this v
+					temp = BE.get(inputTokens[2]);
+				} else {
+					temp = new ArrayList<String>();
+				}
 				temp.add(inputTokens[1]);
 				BE.put(inputTokens[2], temp);
 				
 			// if BC, it is an incoming node from outside of the block
 			} else if (inputTokens[0].equals("BC")) {
-				//System.out.println(BC.get(inputTokens[2]));
-				
-				if(BC.containsKey(inputTokens[2])){
+				if (BC.containsKey(inputTokens[2])) {
 					//Initialize BC for this v
-					temp = BC.get(inputTokens[2]);
-				}else{
-					temp = new ArrayList<String>();
+					tempBC = BC.get(inputTokens[2]);
+				} else {
+					tempBC = 0.0f;
 				}
-				
-				//System.out.println(temp.toString());
-				//System.out.println(inputTokens[3]);
-				//String concatenateString = inputTokens[1] + "," + inputTokens[3];
-				temp.add(inputTokens[3]);
-				BC.put(inputTokens[2], temp);
-			
+				tempBC += Float.parseFloat(inputTokens[3]);
+				BC.put(inputTokens[2], tempBC);
 			}		
 		}
 		
-		for(int i=0; i<1; i++) {
-			IterateBlockOnce();
-		}
+		int i = 0;
+		do {
+			i++;
+			residualError = IterateBlockOnce();
+			//System.out.println("Block " + key + " pass " + i + " resError:" + residualError);
+		} while (i < maxIterations && residualError > threshold);
+
 				
-		// compute the residual error for each node in this block
+		// compute the ultimate residual error for each node in this block
+		residualError = 0.0f;
 		for (String v : vList) {
 			NodeData node = nodeDataMap.get(v);
 			residualError += Math.abs(node.getPageRank() - newPR.get(v)) / newPR.get(v);
 		}
 		residualError = residualError / vList.size();
+		//System.out.println("Block " + key + " overall resError for iteration: " + residualError);
 		
 		// add the residual error to the counter that is tracking the overall sum (must be expressed as a long value)
 		long residualAsLong = (long) Math.floor(residualError * PageRankBlock.precision);
@@ -127,10 +124,12 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 			Text outputText = new Text(output);
 			Text outputKey = new Text(v);
 			context.write(outputKey, outputText);
+			if (v.equals(maxNode.toString())) {
+				System.out.println("Block:" + key + " node:" + v + " pageRank:" + newPR.get(v));
+			}
 		}
-		
-		//System.out.print("The V List Is: ");
-		//System.out.println(vList.size());
+			
+		cleanup(context);
 	}
 	
 
@@ -138,62 +137,49 @@ public class PageRankBlockReducer extends Reducer<Text, Text, Text, Text> {
 	// u is all nodes pointing to this set of v
 	// some u are inside the block as well, those are in BE
 	// some u are outside the block, those are in BC
-	// PR[v] = current PageRank value of Node v
 	// BE = the Edges from Nodes in Block B
     // BC = the Boundary Conditions
-	// 		R = PR[u]/deg[u] for boundary nodes
 	// NPR[v] = Next PageRank value of Node v
-	protected void IterateBlockOnce() {
-		HashMap<String,Float> NPR = new HashMap<String,Float>();
+	protected float IterateBlockOnce() {
+		// used to iterate through the BE list of edges
 		ArrayList<String> uList = new ArrayList<String>();
-		ArrayList<String> uListBC = new ArrayList<String>();
+		// npr = current PageRank value of Node v
+		float npr = 0.0f;
+		// r = sum of PR[u]/deg[u] for boundary nodes pointing to v
+		float r = 0.0f;
+		// resErr = the avg residual error for this iteration
+		float resErr = 0.0f;
 		
-		//for( v in B ) { NPR[v] = 0; }
 		for (String v : vList) {
-			NPR.put(v, 0.0f);
-		}
-		
-	    //for( v in B ) {
-		for (String v : vList) {
-			if(BE.containsKey(v)){
-				//Initialize BC for this v
+			npr = 0.0f;
+			float prevPR = newPR.get(v);
+
+			// calculate newPR using PR data from any BE nodes for this node
+			if (BE.containsKey(v)) {
 				uList = BE.get(v);
-			}else{
-				uList = new ArrayList<String>();
+				for (String u : uList) {
+					// npr += PR[u] / deg(u);
+					NodeData uNode = nodeDataMap.get(u);
+					npr += (newPR.get(u) / uNode.getDegrees());
+				}
 			}
 			
-			//for( u where <u, v> in BE ) {
-			for (String u : uList) {
-				//    NPR[v] += PR[u] / deg(u);
-				NodeData uNode = nodeDataMap.get(u);
-				float npr = NPR.get(v) + (newPR.get(u) / uNode.getDegrees());
-				NPR.put(v, npr);
-	        }
-			
-			
-			if(BC.containsKey(v)){
-				//Initialize BC for this v
-				uListBC = BC.get(v);
-			}else{
-				uListBC = new ArrayList<String>();
+			// add on any PR from nodes outside the block (BC)
+			if (BC.containsKey(v)) {
+				r = BC.get(v);
+				npr += r;
 			}
-			
-			//for( u, R where <u,v,R> in BC ) {
-			for (String uR : uListBC) { 
-		        //    NPR[v] += R;
-				//String[] tempUR = uR.split(",");
-				float npr = NPR.get(v) + Float.parseFloat(uR);
-				NPR.put(v, npr);
-	        }
+	
 	        //NPR[v] = d*NPR[v] + (1-d)/N;
-			float npr = (dampingFactor * NPR.get(v)) + randomJumpFactor;
-			NPR.put(v, npr);
-	    }
-		
-	    //for( v in B ) { PR[v] = NPR[v]; }
-		for (String v : vList) {
-			newPR.put(v, NPR.get(v));
+			npr = (dampingFactor * npr) + randomJumpFactor;
+			// update the global newPR map
+			newPR.put(v, npr);
+			// track the sum of the residual errors
+			resErr += Math.abs(prevPR - npr) / npr;
 		}
+		// calculate the average residual error and return it
+		resErr = resErr / vList.size();
+		return resErr;
 	}
 
 }

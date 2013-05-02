@@ -18,7 +18,7 @@ public class PageRankBlockMapper extends Mapper<LongWritable, Text, Text, Text> 
 			throws IOException, InterruptedException {
 
 		// value is in the format['node','PageRank
-		// Estimate','degrees(node)','outgoing edgelist'] delimiter = " "
+		// Estimate','degrees(node)','outgoing edgelist'] delimiter = whitespace
 
 		String line = value.toString();
 		line = line.trim();
@@ -43,23 +43,26 @@ public class PageRankBlockMapper extends Mapper<LongWritable, Text, Text, Text> 
 				+ edgeList);
 		context.write(mapperKey, mapperValue);
 
-		// the pageRankFactor is used by the reducer to calculate the new
-		// pageRank for the outgoing edges
 		// find the blockID for the outgoing edge
-		// map key:blockID value:nodeOut pageRankFactor for each outgoing edge
 		// if the outgoing edge lies within a different block, we also need to send our
 		// node's info to that block with a label of "BC" (boundary condition)
 		if (edgeList != "") {
-			Float pageRankFactor = new Float(pageRank / degree);
-			String pageRankFactorString = String.valueOf(pageRankFactor);
 			String[] edgeListArray = edgeList.split(",");
 
 			for (int i = 0; i < edgeListArray.length; i++) {
 				Integer blockIDOut = new Integer(lookupBlockID(Integer.parseInt(edgeListArray[i])));
 				mapperKey = new Text(blockIDOut.toString());
-				if (blockIDOut == blockID) {
+				// the 2 nodes are in the same block
+				if (blockIDOut.equals(blockID)) {
+					// map key:blockID value:BE node nodeOut
 					mapperValue = new Text("BE " + node.toString() + " " + edgeListArray[i]);
+				// this is an edge node - the incoming node is in another block
 				} else {
+					// the pageRankFactor is used by the reducer to calculate the new
+					// pageRank for the outgoing edges
+					Float pageRankFactor = new Float(pageRank / degree);
+					String pageRankFactorString = String.valueOf(pageRankFactor);
+					// map key:blockID value:BC node nodeOut pageRankFactor 
 					mapperValue = new Text("BC " + node.toString() + " " + edgeListArray[i] + " " + pageRankFactorString);
 				}
 				context.write(mapperKey, mapperValue);

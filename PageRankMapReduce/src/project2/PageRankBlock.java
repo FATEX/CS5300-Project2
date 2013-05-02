@@ -26,22 +26,23 @@ public class PageRankBlock {
 	    RESIDUAL_ERROR
 	};
 	public static final int totalNodes = 685230;	// total # of nodes in the input set
-	public static final int totalBlocks = 68;
+	public static final int totalBlocks = 68;	// total # of blocks
 	public static final int precision = 10000;	// this allows us to store the residual error value in the counter as a long
-    //TODO: change to 5 once round 1 is working
-	private static final int NUM_ITERATIONS = 1; // # of iterations to run
+	private static final Float thresholdError = 0.001f;	// the threshold to determine whether or not we have converged
     
 	public static void main(String[] args) throws Exception {
 		
 		if (args.length != 2) {
-			System.err.println("Usage (no trailing slashes): project2.NodeDriver s3n://<in filename> s3n://<out bucket>");
+			System.err.println("Usage (no trailing slashes): project2.PageRankBlock s3n://<in filename> s3n://<out bucket>");
 			System.exit(2);
 		}
 		String inputFile = args[0];
 		String outputPath = args[1];
-
-		//TODO: I believe instead of a fixed # of iterations, we need to iterate to convergence 
-        for (int i = 0; i < NUM_ITERATIONS; i++) {
+		int i = 0;
+		Float residualErrorAvg = 0.0f;
+		
+		// iterate to convergence 
+        do {
             Job job = new Job();
             // Set a unique job name
             job.setJobName("prBlock_"+ (i+1));
@@ -70,14 +71,14 @@ public class PageRankBlock {
             job.waitForCompletion(true);
             
             // before starting the next pass, compute the avg residual error for this pass and print it out
-            // TODO: will float work or do we need a double?
-            float residualErrorAvg = job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision  / totalBlocks;
+            residualErrorAvg = (float) job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).getValue() / precision  / totalBlocks;
             String residualErrorString = String.format("%.4f", residualErrorAvg);
             System.out.println("Residual error for iteration " + i + ": " + residualErrorString);
             
             // reset the counter for the next round
             job.getCounters().findCounter(ProjectCounters.RESIDUAL_ERROR).setValue(0L);
-        }
+            i++;
+        } while (residualErrorAvg > thresholdError);
         
     }
 }

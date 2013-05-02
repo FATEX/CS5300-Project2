@@ -1,5 +1,6 @@
 package project2;
 
+// data structure used to represent a node
 public class NodeData {
 	String nodeID = "";
 	String edgeList = "";
